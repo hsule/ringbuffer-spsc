@@ -36,7 +36,7 @@
 //! p.join().unwrap();
 //! c.join().unwrap();
 //! ```
-#![no_std]
+// #![no_std]
 extern crate alloc;
 
 use alloc::sync::Arc;
@@ -151,6 +151,27 @@ pub struct RingBufferReader<T, const N: usize> {
 }
 
 impl<T, const N: usize> RingBufferReader<T, N> {
+    /// Calculate the number of elements currently in the ring buffer
+    pub fn len(&self) -> usize {
+        let write_index = self.inner.idx_w.load(Ordering::Acquire);
+        let read_index = self.local_idx_r;
+
+        // Log the current read and write indices
+        println!("[Debug] RingBufferReader - Write index: {}, Read index: {}", write_index, read_index);
+
+        // If the write index is greater than or equal to the read index, calculate the difference directly
+        if write_index >= read_index {
+            let length = write_index - read_index;
+            println!("[Debug] RingBufferReader - Current length (direct): {}", length);
+            length
+        } else {
+            // If the write index has wrapped around, add the buffer size to the difference
+            let length = (write_index + N) - read_index;
+            println!("[Debug] RingBufferReader - Current length (wrapped): {}", length);
+            length
+        }
+    }
+
     #[inline]
     pub fn pull(&mut self) -> Option<T> {
         // Check if the ring buffer is potentially empty
