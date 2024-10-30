@@ -157,17 +157,17 @@ impl<T, const N: usize> RingBufferReader<T, N> {
         let read_index = self.local_idx_r;
 
         // Log the current read and write indices
-        println!("[Debug] RingBufferReader - Write index: {}, Read index: {}", write_index, read_index);
+        // println!("[Debug] RingBufferReader - Write index: {}, Read index: {}", write_index, read_index);
 
         // If the write index is greater than or equal to the read index, calculate the difference directly
         if write_index >= read_index {
             let length = write_index - read_index;
-            println!("[Debug] RingBufferReader - Current length (direct): {}", length);
+            // println!("[Debug] RingBufferReader - Current length (direct): {}", length);
             length
         } else {
             // If the write index has wrapped around, add the buffer size to the difference
             let length = (write_index + N) - read_index;
-            println!("[Debug] RingBufferReader - Current length (wrapped): {}", length);
+            // println!("[Debug] RingBufferReader - Current length (wrapped): {}", length);
             length
         }
     }
@@ -175,22 +175,28 @@ impl<T, const N: usize> RingBufferReader<T, N> {
     #[inline]
     pub fn pull(&mut self) -> Option<T> {
         // Check if the ring buffer is potentially empty
+        // println!("[Debug] RingBufferReader - Attempting to pull element");
         if self.local_idx_r == self.cached_idx_w {
             // Update the write index
             self.cached_idx_w = self.inner.idx_w.load(Ordering::Acquire);
+            // println!("[Debug] RingBufferReader - Updated Write index: {}, Read index: {}", self.cached_idx_w, self.local_idx_r);
+
             // Check if the ring buffer is really empty
             if self.local_idx_r == self.cached_idx_w {
+                // println!("[Debug] RingBufferReader - Ring buffer is empty");
                 return None;
             }
         }
         // Remove the element from the ring buffer
         let t = unsafe {
+            // println!("[Debug] RingBufferReader - Removing element at index {}", self.local_idx_r);
             mem::replace(self.inner.get_mut(self.local_idx_r), MaybeUninit::uninit()).assume_init()
         };
         // Let's increment the counter and let it grow indefinitely
         // and potentially overflow resetting it to 0.
         self.local_idx_r = self.local_idx_r.wrapping_add(1);
         self.inner.idx_r.store(self.local_idx_r, Ordering::Release);
+        // println!("[Debug] RingBufferReader - Updated Read index to {}", self.local_idx_r);
 
         Some(t)
     }
